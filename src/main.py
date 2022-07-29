@@ -22,7 +22,9 @@ def whats_new(session):
     soup = BeautifulSoup(response.text, features='lxml')
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all('li', attrs={'class': 'toctree-l1'})
+    sections_by_python = div_with_ul.find_all(
+        'li', attrs={'class': 'toctree-l1'}
+        )
 
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, Автор')]
     for section in tqdm(sections_by_python):
@@ -31,7 +33,7 @@ def whats_new(session):
         version_link = urljoin(whats_new_url, href)
         response = get_response(session, version_link)
         if response is None:
-            continue 
+            continue
         soup = BeautifulSoup(response.text, features='lxml')
         h1 = find_tag(soup, 'h1')
         dl = find_tag(soup, 'dl')
@@ -40,6 +42,7 @@ def whats_new(session):
             (version_link, h1.text, dl_text)
         )
     return results
+
 
 def latest_versions(session):
     response = get_response(session, MAIN_DOC_URL)
@@ -66,7 +69,8 @@ def latest_versions(session):
         results.append(
             (link, version, status)
         )
-    return results            
+    return results
+
 
 def download(session):
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
@@ -74,9 +78,11 @@ def download(session):
     if response is None:
         return
     soup = BeautifulSoup(response.text, 'lxml')
-    main_tag = find_tag(soup,'div', {'role': 'main'})
+    main_tag = find_tag(soup, 'div', {'role': 'main'})
     table_tag = find_tag(main_tag, 'table', {'class': 'docutils'})
-    pdf_a4_tag = find_tag(table_tag, 'a', {'href': re.compile(r'.+pdf-a4\.zip$')})
+    pdf_a4_tag = find_tag(
+        table_tag, 'a', {'href': re.compile(r'.+pdf-a4\.zip$')}
+        )
     pdf_a4_link = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_link)
     filename = archive_url.split('/')[-1]
@@ -87,7 +93,8 @@ def download(session):
     with open(archive_path, 'wb') as file:
         file.write(response.content)
     print(archive_url)
-    logging.info(f'Архив был загружен и сохранён: {archive_path}')    
+    logging.info(f'Архив был загружен и сохранён: {archive_path}')
+
 
 def pep(session):
     count_status = {
@@ -104,18 +111,20 @@ def pep(session):
     response = get_response(session, PEP_URL)
     if response is None:
         return
-    soup = BeautifulSoup(response.text, features = 'lxml')
+    soup = BeautifulSoup(response.text, features='lxml')
     main = find_tag(soup, 'section', attrs={'id': 'numerical-index'})
     tr_t = main.find_all('tr')
     for tr in tqdm(tr_t[1:], desc='считаем количество PEP'):
         personal_pep_link = tr.td.find_next_sibling().find('a')['href']
         url_pep = urljoin(PEP_URL, personal_pep_link)
-        response_pep =get_response(session, url_pep)
+        response_pep = get_response(session, url_pep)
         if response_pep is None:
             return
-        pep_soup = BeautifulSoup(response_pep.text, features = 'lxml')
+        pep_soup = BeautifulSoup(response_pep.text, features='lxml')
         dl = find_tag(pep_soup, 'dl')
-        dt = find_tag(dl, lambda tag: tag.name == 'dt' and 'Status' in tag.text)
+        dt = find_tag(
+            dl, lambda tag: tag.name == 'dt' and 'Status' in tag.text
+            )
         status = dt.find_next_sibling().text
         count_status[status] = count_status.get(status, 0) + 1
 
@@ -129,7 +138,7 @@ def pep(session):
                 f'код статуса в таблице: {tr.td.text[1:]}.'
             )
             pep_statuslist = [status, ]
-        if status not in pep_statuslist:        
+        if status not in pep_statuslist:
             logging.info(f'Несовпадающие статусы у PEP: '
                          f'"{url_pep}".'
                          f'статус в инфо о pep: {status}, '
@@ -144,7 +153,6 @@ def pep(session):
         results.append(('Total:', total))
 
     return results
-        
 
 
 MODE_TO_FUNCTION = {
@@ -154,20 +162,22 @@ MODE_TO_FUNCTION = {
     'pep': pep,
 }
 
+
 def main():
     configure_logging()
-    logging.info('Парсер запущен!')            
+    logging.info('Парсер запущен!')
     arg_parser = configure_argument_parser(MODE_TO_FUNCTION.keys())
     args = arg_parser.parse_args()
-    logging.info(f'Аргументы командной строки: {args}')    
+    logging.info(f'Аргументы командной строки: {args}')
     session = requests_cache.CachedSession()
     if args.clear_cache:
-        session.cache.clear()    
+        session.cache.clear()
     parser_mode = args.mode
     results = MODE_TO_FUNCTION[parser_mode](session)
     if results is not None:
         control_output(results, args)
-    logging.info('Парсер завершил работу.')        
+    logging.info('Парсер завершил работу.')
+
 
 if __name__ == '__main__':
-    main() 
+    main()
